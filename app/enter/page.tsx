@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, Play, Download, Save, Loader2, CheckCircle } from 'lucide-react';
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { ArrowLeft, Play, Download, Save, Loader2 } from 'lucide-react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,11 +9,11 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
-import { useLocation } from 'wouter';
 
 type NumericField = number | '';
 
 type PlayEntry = {
+  id?: string;
   playNumber: number;
   odk: string;
   down: NumericField;
@@ -22,11 +24,11 @@ type PlayEntry = {
   playType: string;
   result: string;
   offFormation: string;
-  offPlay: string;
+  defense: string;
   motion: string;
+  offPlay: string;
+  rpo: string;
   playDir: string;
-  ballCarrier: string;
-  defFront: string;
   stunt: string;
   blitz: string;
   coverage: string;
@@ -104,36 +106,13 @@ function EditableCell({
   );
 }
 
-type Game = {
-  id: string;
-  opponent: string;
-  game_date: string;
-};
-
 export default function LiveEntry() {
-  const [, navigate] = useLocation();
-  const [games, setGames] = useState<Game[]>([]);
   const [opponent, setOpponent] = useState('');
   const [gameDate, setGameDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
   const [isStartingNewGame, setIsStartingNewGame] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [selectedCell, setSelectedCell] = useState({ row: 0, col: 0 });
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playIdsRef = useRef<Map<number, string>>(new Map());
-
-  useEffect(() => {
-    const loadGames = async () => {
-      const { data, error } = await supabase
-        .from('games')
-        .select('id, opponent, game_date')
-        .order('game_date', { ascending: false });
-      if (!error) setGames(data || []);
-    };
-    loadGames();
-  }, []);
 
   const [data, setData] = useState<PlayEntry[]>(() => {
     const rows: PlayEntry[] = [];
@@ -149,11 +128,11 @@ export default function LiveEntry() {
         playType: '',
         result: '',
         offFormation: '',
-        offPlay: '',
+        defense: '',
         motion: '',
+        offPlay: '',
+        rpo: '',
         playDir: '',
-        ballCarrier: '',
-        defFront: '',
         stunt: '',
         blitz: '',
         coverage: '',
@@ -173,131 +152,17 @@ export default function LiveEntry() {
     columnHelper.accessor('gnls', { header: 'GN/LS' }),
     columnHelper.accessor('yardLine', { header: 'YARD LN' }),
     columnHelper.accessor('playType', { header: 'PLAY TYPE' }),
-    columnHelper.accessor('result', { header: 'RESULT' }),
+    columnHelper.accessor('result', { header: 'Result' }),
     columnHelper.accessor('offFormation', { header: 'OFF FORM' }),
+    columnHelper.accessor('defense', { header: 'Defense' }),
+    columnHelper.accessor('motion', { header: 'Motion' }),
     columnHelper.accessor('offPlay', { header: 'OFF PLAY' }),
-    columnHelper.accessor('motion', { header: 'MOTION' }),
+    columnHelper.accessor('rpo', { header: 'RPO' }),
     columnHelper.accessor('playDir', { header: 'PLAY DIR' }),
-    columnHelper.accessor('ballCarrier', { header: 'BALL CAR' }),
-    columnHelper.accessor('defFront', { header: 'DEF FRON' }),
     columnHelper.accessor('stunt', { header: 'STUNT' }),
     columnHelper.accessor('blitz', { header: 'BLITZ' }),
     columnHelper.accessor('coverage', { header: 'COVERAGE' }),
   ];
-
-  const loadPlays = useCallback(async (gameId: string) => {
-    setIsLoading(true);
-    try {
-      const { data: plays, error } = await supabase
-        .from('plays')
-        .select('*')
-        .eq('game_id', gameId)
-        .order('play_number');
-      if (error) throw error;
-      playIdsRef.current = new Map();
-      plays.forEach((p) => playIdsRef.current.set(p.play_number, p.id));
-      setData((prev) => {
-        const next = [...prev];
-        plays.forEach((p) => {
-          const idx = p.play_number - 1;
-          if (idx >= 0 && idx < next.length) {
-            next[idx] = {
-              playNumber: p.play_number,
-              odk: p.odk ?? next[idx].odk,
-              down: p.down ?? '',
-              dist: p.dist ?? '',
-              hash: p.hash ?? '',
-              gnls: p.gnls ?? '',
-              yardLine: p.yard_line ?? '',
-              playType: p.play_type ?? '',
-              result: p.result ?? '',
-              offFormation: p.off_formation ?? '',
-              offPlay: p.off_play ?? '',
-              motion: p.motion ?? '',
-              playDir: p.play_dir ?? '',
-              ballCarrier: p.ball_carrier ?? '',
-              defFront: p.front ?? '',
-              stunt: p.defense ?? '',
-              blitz: p.blitz ?? '',
-              coverage: p.coverage ?? '',
-            };
-          }
-        });
-        return next;
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentGameId) loadPlays(currentGameId);
-  }, [currentGameId, loadPlays]);
-
-  const buildPayload = useCallback((play: PlayEntry) => ({
-    ...(playIdsRef.current.has(play.playNumber) ? { id: playIdsRef.current.get(play.playNumber) } : {}),
-    game_id: currentGameId,
-    play_number: play.playNumber,
-    odk: play.odk,
-    down: play.down || null,
-    dist: play.dist || null,
-    hash: play.hash || null,
-    gnls: play.gnls || null,
-    yard_line: play.yardLine || null,
-    play_type: play.playType || null,
-    result: play.result || null,
-    off_formation: play.offFormation || null,
-    off_play: play.offPlay || null,
-    motion: play.motion || null,
-    play_dir: play.playDir || null,
-    ball_carrier: play.ballCarrier || null,
-    front: play.defFront || null,
-    defense: play.stunt || null,
-    blitz: play.blitz || null,
-    coverage: play.coverage || null,
-  }), [currentGameId]);
-
-  const hasData = (play: PlayEntry) =>
-    playIdsRef.current.has(play.playNumber) ||
-    play.down !== '' || play.dist !== '' || play.hash !== '' ||
-    play.gnls !== '' || play.yardLine !== '' || play.playType !== '' ||
-    play.result !== '' || play.offFormation !== '' || play.offPlay !== '' ||
-    play.motion !== '' || play.playDir !== '' || play.ballCarrier !== '' ||
-    play.defFront !== '' || play.stunt !== '' || play.blitz !== '' || play.coverage !== '';
-
-  const autoSave = useCallback(async () => {
-    if (!currentGameId) return;
-    const playsToSave = data.filter(hasData).map(buildPayload);
-    if (playsToSave.length === 0) return;
-    setIsSaving(true);
-    try {
-      const { data: saved, error } = await supabase
-        .from('plays')
-        .upsert(playsToSave)
-        .select('id, play_number');
-      if (error) throw error;
-      saved?.forEach((row) => playIdsRef.current.set(row.play_number, row.id));
-      setLastSaved(new Date());
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [currentGameId, data, buildPayload]);
-
-  const triggerAutoSave = useCallback(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(autoSave, 2000);
-  }, [autoSave]);
-
-  useEffect(() => {
-    if (currentGameId) triggerAutoSave();
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
-  }, [data, currentGameId, triggerAutoSave]);
 
   const toPosition = (val: NumericField): number => {
     if (val === '' || val === null) return 50;
@@ -389,7 +254,6 @@ export default function LiveEntry() {
       setCurrentGameId(game.id);
       alert('New game started successfully!');
 
-      playIdsRef.current = new Map();
       setData((prev) =>
         prev.map((row, i) => ({
           ...row,
@@ -400,11 +264,11 @@ export default function LiveEntry() {
           playType: '',
           result: '',
           offFormation: '',
-          offPlay: '',
+          defense: '',
           motion: '',
+          offPlay: '',
+          rpo: '',
           playDir: '',
-          ballCarrier: '',
-          defFront: '',
           stunt: '',
           blitz: '',
           coverage: '',
@@ -419,7 +283,42 @@ export default function LiveEntry() {
 
   const saveGame = async () => {
     if (!currentGameId) return alert('Please start a new game first');
-    await autoSave();
+
+    setIsSaving(true);
+    try {
+      const playsToSave = data.map((play) => ({
+        game_id: currentGameId,
+        play_number: play.playNumber,
+        odk: play.odk,
+        down: play.down,
+        dist: play.dist,
+        hash: play.hash,
+        gnls: play.gnls,
+        yard_line: play.yardLine,
+        play_type: play.playType,
+        result: play.result,
+        off_formation: play.offFormation,
+        defense: play.defense,
+        motion: play.motion,
+        off_play: play.offPlay,
+        rpo: play.rpo,
+        play_dir: play.playDir,
+        stunt: play.stunt,
+        blitz: play.blitz,
+        coverage: play.coverage,
+      }));
+
+      const { error } = await supabase
+        .from('plays')
+        .upsert(playsToSave, { onConflict: 'game_id,play_number' });
+
+      if (error) throw error;
+      alert('Game saved successfully!');
+    } catch (error: any) {
+      alert(error.message || 'Failed to save game');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const downloadCSV = () => {
@@ -452,7 +351,7 @@ export default function LiveEntry() {
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/')}
+                onClick={() => window.history.back()}
                 className="flex items-center gap-2 text-zinc-400 hover:text-white"
               >
                 <ArrowLeft size={22} /> Back
@@ -461,33 +360,20 @@ export default function LiveEntry() {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              <select
-                value={currentGameId || ''}
-                onChange={(e) => setCurrentGameId(e.target.value || null)}
-                className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500"
-              >
-                <option value="">Select Game...</option>
-                {games.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {game.opponent} — {new Date(game.game_date).toLocaleDateString()}
-                  </option>
-                ))}
-              </select>
-
               <button
-                onClick={() => navigate('/enter')}
+                onClick={() => (window.location.href = '/enter')}
                 className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium"
               >
                 ODK
               </button>
               <button
-                onClick={() => navigate('/enter/offense')}
+                onClick={() => (window.location.href = '/enter/offense')}
                 className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium"
               >
                 OFFENSE
               </button>
               <button
-                onClick={() => navigate('/enter/defense')}
+                onClick={() => (window.location.href = '/enter/defense')}
                 className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium"
               >
                 DEFENSE
@@ -524,15 +410,14 @@ export default function LiveEntry() {
                 <Download size={18} /> CSV
               </button>
 
-              <div className="text-sm flex items-center gap-2 text-zinc-400 min-w-[110px]">
-                {isSaving ? (
-                  <span className="flex items-center gap-1"><Loader2 size={16} className="animate-spin" /> Saving...</span>
-                ) : lastSaved ? (
-                  <span className="flex items-center gap-1 text-emerald-500"><CheckCircle size={16} /> Auto-saved</span>
-                ) : currentGameId ? (
-                  <span className="text-zinc-500 text-xs">Edits auto-save</span>
-                ) : null}
-              </div>
+              <button
+                onClick={saveGame}
+                disabled={isSaving || !currentGameId}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-70 px-6 py-2.5 rounded-xl font-semibold transition"
+              >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                {isSaving ? 'Saving...' : 'Save Game'}
+              </button>
             </div>
           </div>
         </div>

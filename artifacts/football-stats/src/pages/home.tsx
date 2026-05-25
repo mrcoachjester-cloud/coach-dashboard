@@ -1,7 +1,7 @@
 'use client';
 
 import { Play, Upload, BarChart3, ArrowRight } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { useLocation } from '@/lib/router';
 
 export default function KangaroosLanding() {
   const [, navigate] = useLocation();

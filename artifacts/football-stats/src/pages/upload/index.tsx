@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, CheckCircle, AlertTriangle, Loader2, Download, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useLocation } from 'wouter';
+import { useLocation } from '@/lib/router';
 
 type ParsedPlay = {
   play_number: number; odk: string; down: string; dist: string; hash: string;

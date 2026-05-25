@@ -7,7 +7,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { supabase } from '@/lib/supabase';
-import { useLocation } from 'wouter';
+import { useLocation } from '@/lib/router';
 
 type Game = {
   id: string;

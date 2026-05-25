@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, TrendingUp, AlertTriangle, CheckCircle, Loader2, ChevronDown, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useLocation } from 'wouter';
+import { useLocation } from '@/lib/router';
 
 type Game = { id: string; opponent: string; game_date: string; status: string };
 type Play = {
