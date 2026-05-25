@@ -1,5 +1,5 @@
 {
-  "name": "football-stats",
+  "name": "coach-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -26,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "autoprefixer": "^10.4.20",
     "typescript": "^5"
   }
 }
