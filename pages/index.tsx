@@ -1,10 +1,43 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { Play, Upload, BarChart3, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/router';
+import useSupabase from '../lib/useSupabase';
+import { defaultGameOptions, fetchGames, fetchPlaysForGame, summarizePlays, type GameOption } from '../lib/coach-data';
 
 export default function KangaroosLanding() {
   const router = useRouter();
+  const { supabase, isReady } = useSupabase();
+  const [games, setGames] = useState<GameOption[]>(defaultGameOptions);
+  const [summary, setSummary] = useState({ offense: 0, defense: 0, kick: 0, total: 0 });
+  const [status, setStatus] = useState('Loading Supabase...');
+
+  useEffect(() => {
+    if (!supabase || !isReady) {
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const loadedGames = await fetchGames(supabase);
+        const nextGames = loadedGames.length > 0 ? loadedGames : defaultGameOptions;
+        setGames(nextGames);
+
+        const latestGame = nextGames[0];
+        const plays = latestGame ? await fetchPlaysForGame(supabase, latestGame.id) : [];
+        setSummary(summarizePlays(plays));
+        setStatus('Connected to Supabase');
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Supabase connection failed');
+      }
+    };
+
+    void load();
+  }, [supabase, isReady]);
+
+  const latestGame = useMemo(() => games[0], [games]);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <nav className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md fixed w-full z-50">
@@ -12,8 +45,8 @@ export default function KangaroosLanding() {
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center font-bold text-xl">K</div>
             <div>
-              <div className="font-bold text-2xl tracking-tight">Kangaroos Stats</div>
-              <div className="text-xs text-zinc-500 -mt-1">HS Football</div>
+              <div className="font-bold text-2xl tracking-tight">Kangaroos Football</div>
+              <div className="text-xs text-zinc-500 -mt-1">Stats & Scouting</div>
             </div>
           </div>
 
@@ -28,10 +61,16 @@ export default function KangaroosLanding() {
 
       <div className="pt-24 pb-16">
         <div className="container text-center">
+          <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
+            <span className="text-emerald-400">{status}</span>
+            <span>Games: {games.length}</span>
+            <span>Plays in latest game: {summary.total}</span>
+          </div>
+
           <div className="mb-16 mt-8">
             <div className="inline-flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-full px-4 py-1.5 text-sm mb-6">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              Ready for Friday Night
+              {latestGame ? `${latestGame.label} • ${latestGame.opponent}` : 'Ready for Friday Night'}
             </div>
 
             <h1 className="text-6xl md:text-7xl font-bold tracking-tighter mb-6">
@@ -76,6 +115,24 @@ export default function KangaroosLanding() {
               </button>
             </div>
           </div>
+
+          <div className="mt-10 grid md:grid-cols-3 gap-4 text-left">
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+              <div className="text-sm text-zinc-400 mb-2">Latest game</div>
+              <div className="text-lg font-semibold">{latestGame?.label ?? 'No games found'}</div>
+              <div className="text-sm text-zinc-400">{latestGame ? `${latestGame.opponent} • ${latestGame.date}` : 'Connect Supabase to load games'}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+              <div className="text-sm text-zinc-400 mb-2">Game count</div>
+              <div className="text-3xl font-bold">{games.length}</div>
+              <div className="text-sm text-zinc-400">Loaded from the games table</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+              <div className="text-sm text-zinc-400 mb-2">Latest play mix</div>
+              <div className="text-3xl font-bold">O {summary.offense} / D {summary.defense} / K {summary.kick}</div>
+              <div className="text-sm text-zinc-400">Loaded from the plays table</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -83,6 +140,20 @@ export default function KangaroosLanding() {
         <div className="container">
           <h2 className="text-3xl font-bold mb-2">Weekly Workflow</h2>
           <p className="text-zinc-400 mb-10">From film room to Friday night</p>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-950 p-6">
+              <div className="text-sm text-blue-400 font-semibold mb-2">1. Prepare</div>
+              <div className="text-lg font-medium">Upload film data and review opponent tendencies.</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-950 p-6">
+              <div className="text-sm text-purple-400 font-semibold mb-2">2. Track</div>
+              <div className="text-lg font-medium">Log live plays during the game with quick entry tools.</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-700 bg-zinc-950 p-6">
+              <div className="text-sm text-emerald-400 font-semibold mb-2">3. Adjust</div>
+              <div className="text-lg font-medium">Compare scout film to the live game and spot trend changes.</div>
+            </div>
+          </div>
         </div>
       </div>
 
